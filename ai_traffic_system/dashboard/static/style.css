@@ -1,0 +1,101 @@
+body {
+    background-color: #1e1e1e;
+    color: #f0f0f0;
+    font-family: "Segoe UI", sans-serif;
+    margin: 30px;
+  }
+  
+  h1 {
+    color: #00bcd4;
+    margin-bottom: 20px;
+    font-size: 32px;
+  }
+  
+  h2 {
+    border-left: 6px solid #00bcd4;
+    padding-left: 10px;
+    color: #ffffff;
+    margin-top: 30px;
+    font-size: 22px;
+  }
+  
+  section {
+    background-color: #2a2a2a;
+    padding: 20px;
+    margin-bottom: 30px;
+    border-radius: 10px;
+    box-shadow: 0 0 8px rgba(0, 188, 212, 0.3);
+  }
+  
+  select, button {
+    background-color: #333;
+    color: #f0f0f0;
+    padding: 8px 12px;
+    border: none;
+    border-radius: 6px;
+    margin: 5px 0;
+    font-size: 14px;
+  }
+  
+  button:hover {
+    background-color: #00bcd4;
+    cursor: pointer;
+  }
+  
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 10px;
+  }
+  
+  table th {
+    background-color: #444;
+    color: #00bcd4;
+    padding: 10px;
+  }
+  
+  table td {
+    background-color: #2f2f2f;
+    padding: 10px;
+    text-align: center;
+  }
+  
+  a {
+    color: #ffd700;
+    text-decoration: none;
+  }
+  
+  a:hover {
+    text-decoration: underline;
+  }
+  
+  #incidentTable td:nth-child(1) {
+    color: #ff5252; /* red for incident ID */
+    font-weight: bold;
+  }
+  
+  #officerList li {
+    margin-bottom: 8px;
+    font-size: 15px;
+    color: #ccc;
+  }
+  
+  #officerList li b {
+    color: #4fc3f7;
+  }
+  
+/* Overrides for Updated Layout (By Jawad)*/
+
+h1, h2 {
+    margin-top: 0 !important;
+  }
+  
+  section h2 {
+    margin-top: 0;
+    padding-top: 0;
+  }
+  
+  section {
+    margin-top: 15px; /* Optional: tighten vertical spacing */
+  }
+  

@@ -1,0 +1,273 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>AI Traffic Dashboard</title>
+  <link rel="stylesheet" href="/static/style.css">
+  <link
+    rel="stylesheet"
+    href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+    crossorigin=""
+  />
+  <script
+    src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+    crossorigin=""
+  ></script>
+  <style>
+    .intersection-sim {
+      width: 220px;
+      height: 220px;
+      margin: 20px auto;
+      position: relative;
+      background: #333;
+      border: 5px solid #111;
+      border-radius: 12px;
+    }
+    .lane {
+      width: 60px;
+      height: 60px;
+      position: absolute;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+    }
+    .lane .light {
+      width: 20px;
+      height: 20px;
+      border-radius: 50%;
+      background: #444;
+      box-shadow: 0 0 5px #000;
+    }
+    .lane.north { top: 0; left: 50%; transform: translateX(-50%); }
+    .lane.south { bottom: 0; left: 50%; transform: translateX(-50%); }
+    .lane.east  { right: 0; top: 50%; transform: translateY(-50%); }
+    .lane.west  { left: 0; top: 50%; transform: translateY(-50%); }
+  </style>
+</head>
+<body>
+  <h1>🧠 AI Traffic System Dashboard</h1>
+
+  <section>
+    <h2>Live Lane Status</h2>
+    <div id="laneCounts"></div>
+  </section>
+
+  <section>
+    <h2>Emergency Override</h2>
+    <label for="lane">Forced Lane:</label>
+    <select id="lane">
+      <option value="north">North</option>
+      <option value="south">South</option>
+      <option value="east">East</option>
+      <option value="west">West</option>
+    </select>
+    <button onclick="toggleOverride(true)">Activate</button>
+    <button onclick="toggleOverride(false)">Deactivate</button>
+    <p id="overrideStatus" style="margin-top:10px; color:#ffd700;"></p>
+    <p id="recommendation" style="margin-top:10px; color:#4fc3f7;"></p>
+  </section>
+
+  <section>
+    <h2>🚦 Intersection Simulation</h2>
+    <div class="intersection-sim">
+      <div class="lane north"><div class="light" id="light-north"></div></div>
+      <div class="lane south"><div class="light" id="light-south"></div></div>
+      <div class="lane east"><div class="light" id="light-east"></div></div>
+      <div class="lane west"><div class="light" id="light-west"></div></div>
+    </div>
+  </section>
+
+  <section>
+    <h2>📍 Intersection View: Gemmayzeh</h2>
+    <div id="map" style="height: 400px; width: 100%; border-radius: 8px;"></div>
+  </section>
+
+  <section>
+    <h2>🚨 Live Red Light Violations</h2>
+    <table border="1">
+      <thead>
+        <tr>
+          <th>Incident ID</th>
+          <th>Time</th>
+          <th>Lane</th>
+          <th>Image Folder</th>
+        </tr>
+      </thead>
+      <tbody id="incidentTable"></tbody>
+    </table>
+  </section>
+
+  <section>
+    <h2>👮 On-Call Traffic Officers</h2>
+    <ul id="officerList"></ul>
+  </section>
+
+  <section>
+    <h2>🛠️ Demo Tools</h2>
+    <button onclick="simulateViolation()">🚨 Simulate Red Light Violation</button>
+    <button onclick="downloadReport()">📥 Export Incident Report (CSV)</button>
+    <p id="demoMsg" style="margin-top:10px; color:#ffd700;"></p>
+  </section>
+
+  <section>
+    <h2>🧾 System Logs (Last 50)</h2>
+    <table border="1">
+      <thead>
+        <tr>
+          <th>Timestamp</th>
+          <th>Event</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody id="logTable"></tbody>
+    </table>
+  </section>
+
+  <script>
+    async function fetchStatus() {
+      const res = await fetch("/api/status");
+      const data = await res.json();
+      const out = Object.entries(data.lane_counts)
+        .map(([lane, count]) => `<div><b>${lane.toUpperCase()}</b>: ${count}</div>`)
+        .join("");
+      document.getElementById("laneCounts").innerHTML = out;
+    }
+
+    async function toggleOverride(enable) {
+      const lane = document.getElementById("lane").value;
+      await fetch("/api/override", {
+        method: "POST",
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ enabled: enable, lane: lane })
+      });
+      const msg = enable
+        ? `🟢 Manual override activated for lane: <b>${lane.toUpperCase()}</b>`
+        : `⚪ Manual override <b>deactivated</b>`;
+      document.getElementById("overrideStatus").innerHTML = msg;
+    }
+
+    async function fetchIncidents() {
+      const res = await fetch("/api/incidents");
+      const data = await res.json();
+      const rows = data.map(inc => `
+        <tr>
+          <td>${inc.id}</td>
+          <td>${inc.timestamp}</td>
+          <td>${inc.lane}</td>
+          <td><a href="/logs/${inc.folder}" target="_blank">${inc.folder}</a></td>
+        </tr>
+      `).join("");
+      document.getElementById("incidentTable").innerHTML = rows;
+    }
+
+    async function fetchOfficers() {
+      const res = await fetch("/api/officers");
+      const data = await res.json();
+      const list = data.map(o => `
+        <li><b>${o.name}</b> — ${o.zone} — 📞 ${o.phone}</li>
+      `).join("");
+      document.getElementById("officerList").innerHTML = list;
+    }
+
+    async function fetchRecommendation() {
+      const res = await fetch("/api/recommendation");
+      const data = await res.json();
+      const el = document.getElementById("recommendation");
+      if (data.lane) {
+        el.innerHTML = `🔎 Suggested Override: <b>${data.lane.toUpperCase()}</b> (${data.count} vehicles)`;
+      } else {
+        el.innerHTML = "🔎 No traffic detected.";
+      }
+    }
+
+    async function simulateViolation() {
+      const res = await fetch("/api/simulate_violation", { method: "POST" });
+      const data = await res.json();
+      document.getElementById("demoMsg").innerHTML =
+        `✅ Simulated violation on <b>${data.lane.toUpperCase()}</b> lane`;
+      fetchIncidents();
+    }
+
+    function downloadReport() {
+      window.location.href = "/api/export_report";
+    }
+
+    async function fetchLogs() {
+      const res = await fetch("/api/logs");
+      const data = await res.json();
+      const rows = data.map(log => `
+        <tr>
+          <td>${log.timestamp}</td>
+          <td>${log.event_type}</td>
+          <td>${log.description}</td>
+        </tr>
+      `).join("");
+      document.getElementById("logTable").innerHTML = rows;
+    }
+
+    async function updateIntersectionLights() {
+      const res = await fetch("/api/lights");
+      const data = await res.json();
+      ["north", "south", "east", "west"].forEach(dir => {
+        const el = document.getElementById(`light-${dir}`);
+        if (!el) return;
+        const color = data[dir] || "RED";
+        el.style.background =
+          color === "GREEN" ? "#0f0" :
+          color === "YELLOW" ? "#ff0" : "#d00";
+      });
+    }
+
+
+
+    function refreshAll() {
+      fetchStatus();
+      fetchIncidents();
+      fetchOfficers();
+      fetchRecommendation();
+      highlightActiveLane();
+      fetchLogs();
+      updateIntersectionLights();
+    }
+
+    const map = L.map('map').setView([33.894694, 35.512111], 18);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: '&copy; OpenStreetMap contributors'
+    }).addTo(map);
+
+    const zoneMarkers = {
+      north: L.marker([33.895306, 35.509187], { title: 'North Camera' }).addTo(map),
+      south: L.marker([33.894905, 35.509230], { title: 'South Camera' }).addTo(map),
+      west:  L.marker([33.895075, 35.508892], { title: 'West Camera' }).addTo(map),
+      east:  L.marker([33.895087, 35.509544], { title: 'East Camera' }).addTo(map)
+    };      
+
+    async function highlightActiveLane() {
+        const res = await fetch("/api/lights");
+        const data = await res.json();
+
+        Object.entries(zoneMarkers).forEach(([dir, marker]) => {
+          const state = data[dir];
+          let color = "#555"; // default: off
+
+          if (state === "GREEN") color = "#0f0";
+          else if (state === "YELLOW") color = "#ff0";
+          else if (state === "RED") color = "#d00";
+
+          marker.setIcon(
+            L.divIcon({
+              className: "custom-marker",
+              html: `<div style="background:${color};width:12px;height:12px;border-radius:50%"></div>`,
+              iconSize: [12, 12]
+            })
+          );
+        });
+      }
+
+
+    refreshAll();
+    setInterval(refreshAll, 5000);
+  </script>
+</body>
+</html>
